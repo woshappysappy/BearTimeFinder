@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-Window Global Event Planner</title>
+    <title>Multi-User Global Event Planner</title>
     <style>
         :root {
             --primary: #2563eb;
@@ -47,13 +47,7 @@
             box-sizing: border-box;
             font-size: 1rem;
         }
-        
-        /* Time Grid Picker Styles */
-        .timeline-label {
-            font-size: 0.85rem;
-            color: #64748b;
-            margin-bottom: 5px;
-        }
+        .timeline-label { font-size: 0.85rem; color: #64748b; margin-bottom: 5px; }
         .time-grid {
             display: grid;
             grid-template-columns: repeat(12, 1fr);
@@ -76,15 +70,8 @@
             user-select: none;
             transition: all 0.15s ease;
         }
-        .time-slot:hover {
-            background: #e2e8f0;
-        }
-        .time-slot.selected {
-            background: var(--primary);
-            color: white;
-            border-color: var(--primary);
-        }
-
+        .time-slot:hover { background: #e2e8f0; }
+        .time-slot.selected { background: var(--primary); color: white; border-color: var(--primary); }
         button {
             width: 100%;
             background: var(--primary);
@@ -98,7 +85,6 @@
             margin-top: 10px;
         }
         button:hover { background: #1d4ed8; }
-        
         .result-slot {
             background: #f0fdf4;
             border-left: 4px solid var(--success);
@@ -126,36 +112,20 @@
             border-radius: 8px;
             border-left: 4px solid var(--primary);
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-        th, td {
-            text-align: left;
-            padding: 10px;
-            border-bottom: 1px solid #e2e8f0;
-            font-size: 0.9em;
-        }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #e2e8f0; font-size: 0.9em; }
         th { background: #f1f5f9; }
-        .clear-btn {
-            background: #64748b;
-            padding: 4px 8px;
-            font-size: 0.75rem;
-            width: auto;
-            margin: 0 0 10px auto;
-            display: block;
-        }
+        .clear-btn { background: #64748b; padding: 4px 8px; font-size: 0.75rem; width: auto; margin: 0 0 10px auto; display: block; }
         .clear-btn:hover { background: #475569; }
     </style>
 </head>
 <body>
 
-<h1 style="text-align: center; margin-bottom: 30px;">🌍 Live Global Event Optimization Dashboard</h1>
+<h1 style="text-align: center; margin-bottom: 30px;">🌍 Live Shared Global Event Planner</h1>
 
 <div class="container">
     <div class="card">
-        <h2>Add Participant</h2>
+        <h2>Add Your Availability</h2>
         <form id="participantForm">
             <label for="name">Name</label>
             <input type="text" id="name" required placeholder="e.g., Alice">
@@ -165,10 +135,10 @@
                 <option value="-11">UTC -11 (Samoa)</option>
                 <option value="-10">UTC -10 (Hawaii)</option>
                 <option value="-9">UTC -9 (Alaska)</option>
-                <option value="-8">UTC -8 (US Pacific / PT)</option>
-                <option value="-7">UTC -7 (US Mountain / MT)</option>
-                <option value="-6">UTC -6 (US Central / CT)</option>
-                <option value="-5">UTC -5 (US Eastern / ET)</option>
+                <option value="-8">UTC -8 (US Pacific)</option>
+                <option value="-7">UTC -7 (US Mountain)</option>
+                <option value="-6">UTC -6 (US Central)</option>
+                <option value="-5">UTC -5 (US Eastern)</option>
                 <option value="-4">UTC -4 (Atlantic)</option>
                 <option value="-3">UTC -3 (Brazil, Argentina)</option>
                 <option value="-1">UTC -1 (Azores)</option>
@@ -199,16 +169,16 @@
             <div class="timeline-label">Afternoon / Evening (12:00 - 23:00)</div>
             <div class="time-grid" id="pmGrid"></div>
 
-            <button type="submit">Add to Calculations</button>
+            <button type="submit" id="submitBtn">Submit My Times</button>
         </form>
     </div>
 
     <div class="card">
-        <h2>Optimal Results (Live Updates)</h2>
-        <div class="stats" id="globalStats">Total Participants: 0 | Total Covered: 0%</div>
+        <h2>Optimal Results (Live Cloud Sync)</h2>
+        <div class="stats" id="globalStats">Loading data from cloud...</div>
         
         <div id="bestSlotsContainer">
-            <p style="color: #64748b;">Waiting for participant data to generate optimal event slots...</p>
+            <p style="color: #64748b;">Syncing with live calendar group...</p>
         </div>
 
         <h2>Roster & Target Selection</h2>
@@ -222,55 +192,61 @@
                         <th>Assigned Event</th>
                     </tr>
                 </thead>
-                <tbody>
-                    </tbody>
+                <tbody></tbody>
             </table>
         </div>
     </div>
 </div>
 
-<script>
-    const participants = [];
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // Initialize the visual timeline grids (AM and PM grids)
+    // Your web app's Firebase configuration
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    const firebaseConfig = {
+      apiKey: "AIzaSyAKAPIqu1kMkQ94ExajYGNQ7NTkcx7TDT4",
+      authDomain: "beartimefinder.firebaseapp.com",
+      projectId: "beartimefinder",
+      storageBucket: "beartimefinder.firebasestorage.app",
+      messagingSenderId: "162685504171",
+      appId: "1:162685504171:web:25adfc9cb22d5488b745ee",
+      measurementId: "G-D3FXPGFW7T"
+    };
+
+    // Initialize Firebase & Firestore
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const participantsCollection = collection(db, "participants");
+
+    // Local application state array
+    let participants = [];
+
+    // Initialize UI Grids
     const amGrid = document.getElementById('amGrid');
     const pmGrid = document.getElementById('pmGrid');
-
-    function createGridSlots() {
-        for (let h = 0; h < 24; h++) {
-            const slot = document.createElement('div');
-            slot.className = 'time-slot';
-            slot.dataset.hour = h;
-            slot.innerText = `${h.toString().padStart(2, '0')}:00`;
-            
-            // Add click event to toggle selection status
-            slot.addEventListener('click', () => {
-                slot.classList.toggle('selected');
-            });
-
-            if (h < 12) {
-                amGrid.appendChild(slot);
-            } else {
-                pmGrid.appendChild(slot);
-            }
-        }
+    for (let h = 0; h < 24; h++) {
+        const slot = document.createElement('div');
+        slot.className = 'time-slot';
+        slot.dataset.hour = h;
+        slot.innerText = `${h.toString().padStart(2, '0')}:00`;
+        slot.addEventListener('click', () => slot.classList.toggle('selected'));
+        if (h < 12) amGrid.appendChild(slot); else pmGrid.appendChild(slot);
     }
-    createGridSlots();
 
-    // Clear selections helper
     document.getElementById('clearSlots').addEventListener('click', () => {
         document.querySelectorAll('.time-slot').forEach(el => el.classList.remove('selected'));
     });
 
-    // Handle form submissions
-    document.getElementById('participantForm').addEventListener('submit', function(e) {
+    // Write Data To Firestore
+    document.getElementById('participantForm').addEventListener('submit', async function(e) {
         e.preventDefault();
+        const submitBtn = document.getElementById('submitBtn');
         
         const name = document.getElementById('name').value;
         const offset = parseFloat(document.getElementById('timezone').value);
-
-        // Gather all selected hours from the user UI
         const selectedLocalHours = [];
+        
         document.querySelectorAll('.time-slot.selected').forEach(slot => {
             selectedLocalHours.push(parseInt(slot.dataset.hour));
         });
@@ -280,50 +256,67 @@
             return;
         }
 
-        // Convert selected local hours array into a 24-hour UTC bitmap
+        submitBtn.disabled = true;
+        submitBtn.innerText = "Saving to Cloud...";
+
+        // Compute UTC availability array mapping
         const utcAvailability = new Array(24).fill(0);
         selectedLocalHours.forEach(localHour => {
             let utcHour = (localHour - offset + 24) % 24;
-            utcHour = Math.floor(utcHour); // Keeps logic clean for fractional offsets
-            utcAvailability[utcHour] = 1;
+            utcAvailability[Math.floor(utcHour)] = 1;
         });
 
-        // Push data model to registry
-        participants.push({
-            name,
-            offset,
-            localHoursCount: selectedLocalHours.length,
-            utcAvailability
-        });
+        try {
+            // Push payload to cloud database
+            await addDoc(participantsCollection, {
+                name: name,
+                offset: offset,
+                localHoursCount: selectedLocalHours.length,
+                utcAvailability: utcAvailability
+            });
 
-        // Reset form input UI fields
-        document.getElementById('name').value = '';
-        document.querySelectorAll('.time-slot').forEach(el => el.classList.remove('selected'));
+            // Reset Input UI
+            document.getElementById('name').value = '';
+            document.querySelectorAll('.time-slot').forEach(el => el.classList.remove('selected'));
+            alert("Success! Your availability has been registered.");
+        } catch (error) {
+            console.error("Error saving data: ", error);
+            alert("Failed to sync data with the cloud server.");
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerText = "Submit My Times";
+        }
+    });
+
+    // Real-Time Listener: Listen to changes in Firestore and update live
+    onSnapshot(participantsCollection, (snapshot) => {
+        participants = [];
+        snapshot.forEach((doc) => {
+            participants.push(doc.data());
+        });
         
-        // Live calculation engine trigger
-        calculateOptimalSlots();
+        if(participants.length > 0) {
+            calculateOptimalSlots();
+        } else {
+            document.getElementById('globalStats').innerText = "Total Participants: 0 | Add your entry to get started!";
+            document.getElementById('bestSlotsContainer').innerHTML = `<p style="color: #64748b;">No responses yet.</p>`;
+            document.querySelector('#rosterTable tbody').innerHTML = '';
+        }
     });
 
     function calculateOptimalSlots() {
-        if (participants.length === 0) return;
-
-        // Combinatorial Exhaustive Check: Since 24 hours has only 2,024 unique sets of 3, 
-        // we can instantly calculate the perfect combination instead of relying on a greedy estimate.
         let bestThree = [];
         let maxCoverage = -1;
 
         for (let i = 0; i < 22; i++) {
             for (let j = i + 1; j < 23; j++) {
                 for (let k = j + 1; k < 24; k++) {
-                    
-                    // Count unique users hit by these 3 test hours
                     let coveredCount = 0;
                     participants.forEach(p => {
                         if (p.utcAvailability[i] === 1 || p.utcAvailability[j] === 1 || p.utcAvailability[k] === 1) {
                             coveredCount++;
                         }
                     });
-
                     if (coveredCount > maxCoverage) {
                         maxCoverage = coveredCount;
                         bestThree = [i, j, k];
@@ -333,8 +326,6 @@
         }
 
         let coveragePercent = Math.round((maxCoverage / participants.length) * 100);
-
-        // Update Dashboard Summary Stats Text
         document.getElementById('globalStats').innerText = 
             `Total Participants: ${participants.length} | Max Overlap Coverage: ${coveragePercent}% (${maxCoverage}/${participants.length} people)`;
 
@@ -347,7 +338,6 @@
         container.innerHTML = '';
 
         bestHours.forEach((utcHour, index) => {
-            // Collect people attending this slot (favoring earlier slot indexes if someone overlaps multiple times)
             let attendees = participants.filter(p => {
                 if (p.utcAvailability[utcHour] === 0) return false;
                 if (index === 1 && p.utcAvailability[bestHours[0]] === 1) return false;
@@ -399,6 +389,5 @@
         return `${Math.floor(localHour).toString().padStart(2, '0')}:${mins}`;
     }
 </script>
-
 </body>
 </html>
