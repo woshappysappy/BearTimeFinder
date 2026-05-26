@@ -21,13 +21,13 @@
             padding: 20px;
         }
         .container {
-            max-width: 1200px;
+            max-width: 1300px;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: 1fr 1.5fr;
+            grid-template-columns: 1fr 1.8fr;
             gap: 25px;
         }
-        @media (max-width: 900px) {
+        @media (max-width: 1000px) {
             .container { grid-template-columns: 1fr; }
         }
         .card {
@@ -124,7 +124,7 @@
             border-left: 4px solid var(--primary);
         }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #e2e8f0; font-size: 0.9em; }
+        th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid #e2e8f0; font-size: 0.9em; }
         th { background: #f1f5f9; }
         .clear-btn { background: #64748b; padding: 4px 8px; font-size: 0.75rem; width: auto; margin: 0 0 10px auto; display: block; }
         .clear-btn:hover { background: #475569; }
@@ -141,21 +141,62 @@
             font-weight: 500;
         }
         .delete-btn:hover { background: var(--danger); color: white; border-color: var(--danger); }
+
+        /* Custom Mini Timeline Visual Display Graphics */
+        .mini-timeline {
+            display: flex;
+            gap: 2px;
+            background: #f1f5f9;
+            padding: 4px;
+            border-radius: 4px;
+            width: 240px;
+        }
+        .mini-block {
+            flex: 1;
+            height: 14px;
+            border-radius: 1px;
+            background: #cbd5e1;
+            position: relative;
+        }
+        .mini-block.active {
+            background: var(--success);
+        }
+        .mini-block .tooltip {
+            visibility: hidden;
+            background-color: #0f172a;
+            color: #fff;
+            text-align: center;
+            border-radius: 4px;
+            padding: 2px 6px;
+            position: absolute;
+            z-index: 10;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .mini-block:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
 
-<h1 style="text-align: center; margin-bottom: 30px;">🐻 TSV Bear Trap Time Finder 🐻</h1>
+<h1 style="text-align: center; margin-bottom: 30px;">🐻TSV Bear Trap Time Finder🐻</h1>
 
 <div class="container">
     <div class="card">
         <h2>Add Your Availability</h2>
-        Select all of your available times below in YOUR LOCAL TIMEZONE (we will convert to UTC).
+		Select all of your available times below in your local timezone (we will convert to UTC). 
         <form id="participantForm">
             <label for="name">Name</label>
             <input type="text" id="name" required placeholder="e.g., Alice">
 
-            <label>Your Timezone</label>
+            <label>Detected Timezone</label>
             <div class="tz-display" id="tzDisplay">Detecting your location...</div>
 
             <div style="display: flex; align-items: center;">
@@ -174,22 +215,22 @@
     </div>
 
     <div class="card">
-        <h2>Bear Trap Results</h2>
+        <h2>Optimal BTs</h2>
         <div class="stats" id="globalStats">Loading data from cloud...</div>
         
         <div id="bestSlotsContainer">
             <p style="color: #64748b;">Syncing with live calendar group...</p>
         </div>
 
-        <h2>Roster & Target Selection</h2>
+        <h2>Player responses</h2>
         <div style="overflow-x: auto;">
             <table id="rosterTable">
                 <thead>
                     <tr>
                         <th>Name</th>
-                        <th>Timezone Offset</th>
-                        <th>Total Free Hours</th>
+                        <th>Timezone</th>
                         <th>Assigned Event</th>
+                        <th>Local Timeline (00-23h)</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -203,17 +244,16 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // Your web app's Firebase configuration
-    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    // FIREBASE CONFIG
     const firebaseConfig = {
-      apiKey: "AIzaSyAKAPIqu1kMkQ94ExajYGNQ7NTkcx7TDT4",
-      authDomain: "beartimefinder.firebaseapp.com",
-      projectId: "beartimefinder",
-      storageBucket: "beartimefinder.firebasestorage.app",
-      messagingSenderId: "162685504171",
-      appId: "1:162685504171:web:25adfc9cb22d5488b745ee",
-      measurementId: "G-D3FXPGFW7T"
-    };
+		apiKey: "AIzaSyAKAPIqu1kMkQ94ExajYGNQ7NTkcx7TDT4",
+		authDomain: "beartimefinder.firebaseapp.com",
+		projectId: "beartimefinder",
+		storageBucket: "beartimefinder.firebasestorage.app",
+		messagingSenderId: "162685504171",
+		appId: "1:162685504171:web:25adfc9cb22d5488b745ee",
+		measurementId: "G-D3FXPGFW7T"
+		};
 
     // Initialize Firebase & Firestore
     const app = initializeApp(firebaseConfig);
@@ -222,17 +262,13 @@
 
     let participants = [];
 
-    // --- AUTOMATIC TIMEZONE DETECTION ENGINE ---
-    // Reads exact device clock offset in hours, correcting for inverted JS offsets
+    // AUTOMATIC TIMEZONE DETECTION ENGINE
     const detectedOffset = -(new Date().getTimezoneOffset() / 60);
-    // Gets named location string (e.g., "America/New_York" or "Europe/London")
     const namedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const sign = detectedOffset >= 0 ? "+" : "";
-    
-    // Render the live calculation properties directly inside form UI
     document.getElementById('tzDisplay').innerText = `${namedTimezone} (UTC ${sign}${detectedOffset})`;
 
-    // Initialize UI Grids
+    // Initialize UI Input Grids
     const amGrid = document.getElementById('amGrid');
     const pmGrid = document.getElementById('pmGrid');
     for (let h = 0; h < 24; h++) {
@@ -254,13 +290,15 @@
         const submitBtn = document.getElementById('submitBtn');
         
         const name = document.getElementById('name').value;
-        const selectedLocalHours = [];
+        const selectedLocalHours = new Array(24).fill(0);
+        let selectionCount = 0;
         
         document.querySelectorAll('.time-slot.selected').forEach(slot => {
-            selectedLocalHours.push(parseInt(slot.dataset.hour));
+            selectedLocalHours[parseInt(slot.dataset.hour)] = 1;
+            selectionCount++;
         });
 
-        if (selectedLocalHours.length === 0) {
+        if (selectionCount === 0) {
             alert("Please pick at least one hour block when you are free!");
             return;
         }
@@ -268,17 +306,20 @@
         submitBtn.disabled = true;
         submitBtn.innerText = "Saving to Cloud...";
 
+        // Map selections directly to standardized global UTC matrices
         const utcAvailability = new Array(24).fill(0);
-        selectedLocalHours.forEach(localHour => {
-            let utcHour = (localHour - detectedOffset + 24) % 24;
-            utcAvailability[Math.floor(utcHour)] = 1;
-        });
+        for(let h=0; h<24; h++) {
+            if(selectedLocalHours[h] === 1) {
+                let utcHour = (h - detectedOffset + 24) % 24;
+                utcAvailability[Math.floor(utcHour)] = 1;
+            }
+        }
 
         try {
             await addDoc(participantsCollection, {
                 name: name,
-                offset: detectedOffset, // Pushes dynamic smart offset to database
-                localHoursCount: selectedLocalHours.length,
+                offset: detectedOffset,
+                localHoursArray: selectedLocalHours, // Save the actual local choices array
                 utcAvailability: utcAvailability
             });
 
@@ -293,7 +334,7 @@
         }
     });
 
-    // Real-Time Listener
+    // Real-Time Sync Listener
     onSnapshot(participantsCollection, (snapshot) => {
         participants = [];
         snapshot.forEach((snapshotDoc) => {
@@ -311,7 +352,6 @@
         }
     });
 
-    // Handle user deletion requests safely
     window.deleteParticipant = async function(docId, name) {
         if (confirm(`Are you sure you want to delete ${name}'s availability submission?`)) {
             try {
@@ -370,8 +410,8 @@
             let timeStrUTC = `${utcHour.toString().padStart(2, '0')}:00 UTC`;
 
             slotDiv.innerHTML = `
-                <h3>Bear Trap ${index + 1}: ${timeStrUTC}</h3>
-                <p style="margin: 5px 0;"><strong>Active Window Audience:</strong> Handles ${attendees.length} people based on custom times.</p>
+                <h3>BT ${index + 1}: ${timeStrUTC}</h3>
+                <p style="margin: 5px 0;"><strong>Available players:</strong> Handles ${attendees.length} people based on custom times.</p>
                 <div>${attendees.map(p => `<span class="badge">${p.name} (Local: ${formatLocalTime(utcHour, p.offset)})</span>`).join('')}</div>
             `;
             container.appendChild(slotDiv);
@@ -383,7 +423,7 @@
         tbody.innerHTML = '';
 
         participants.forEach(p => {
-            let assigned = "❌ Cannot attend any of the 3 hours";
+            let assigned = "❌ None";
             for (let i = 0; i < bestHours.length; i++) {
                 if (p.utcAvailability[bestHours[i]] === 1) {
                     assigned = `Slot #${i + 1} (${bestHours[i].toString().padStart(2, '0')}:00 UTC)`;
@@ -391,13 +431,28 @@
                 }
             }
 
+            // Build dynamic inline heatmap HTML
+            let timelineHTML = `<div class="mini-timeline">`;
+            // Fallback for older entries missing array structures
+            const hoursArray = p.localHoursArray || new Array(24).fill(0); 
+            
+            for(let h = 0; h < 24; h++) {
+                let isActive = hoursArray[h] === 1 ? 'active' : '';
+                let displayTime = `${h.toString().padStart(2, '0')}:00`;
+                timelineHTML += `
+                    <div class="mini-block ${isActive}">
+                        <span class="tooltip">${displayTime}</span>
+                    </div>`;
+            }
+            timelineHTML += `</div>`;
+
             const tr = document.createElement('tr');
             let offsetSign = p.offset >= 0 ? `+${p.offset}` : p.offset;
             tr.innerHTML = `
                 <td><strong>${p.name}</strong></td>
                 <td>UTC ${offsetSign}</td>
-                <td>${p.localHoursCount} hours selected</td>
                 <td style="color: ${assigned.includes('❌') ? '#dc2626' : '#16a34a'}; font-weight: 500;">${assigned}</td>
+                <td>${timelineHTML}</td>
                 <td>
                     <button class="delete-btn" onclick="deleteParticipant('${p.id}', '${p.name}')">Delete</button>
                 </td>
