@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Window Global Event Planner</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --success: #16a34a;
+            --background: #f8fafc;
+            --text: #1e293b;
+            --border: #cbd5e1;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--background);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1.5fr;
+            gap: 25px;
+        }
+        @media (max-width: 900px) {
+            .container { grid-template-columns: 1fr; }
+        }
+        .card {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            height: fit-content;
+        }
+        h2 { margin-top: 0; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;}
+        label { display: block; margin: 15px 0 5px; font-weight: 600; }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+        
+        /* Time Grid Picker Styles */
+        .timeline-label {
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-bottom: 5px;
+        }
+        .time-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 4px;
+            margin-bottom: 15px;
+            background: #f1f5f9;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        .time-slot {
+            background: white;
+            border: 1px solid var(--border);
+            padding: 6px 2px;
+            text-align: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 4px;
+            user-select: none;
+            transition: all 0.15s ease;
+        }
+        .time-slot:hover {
+            background: #e2e8f0;
+        }
+        .time-slot.selected {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        button {
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover { background: #1d4ed8; }
+        
+        .result-slot {
+            background: #f0fdf4;
+            border-left: 4px solid var(--success);
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 0 8px 8px 0;
+        }
+        .result-slot h3 { margin: 0 0 5px 0; color: #14532d; }
+        .badge {
+            display: inline-block;
+            background: #e2e8f0;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            margin: 3px;
+            font-weight: 500;
+        }
+        .stats {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: var(--primary);
+            background: #eff6ff;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            text-align: left;
+            padding: 10px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.9em;
+        }
+        th { background: #f1f5f9; }
+        .clear-btn {
+            background: #64748b;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            width: auto;
+            margin: 0 0 10px auto;
+            display: block;
+        }
+        .clear-btn:hover { background: #475569; }
+    </style>
+</head>
+<body>
+
+<h1 style="text-align: center; margin-bottom: 30px;">🌍 Live Global Event Optimization Dashboard</h1>
+
+<div class="container">
+    <div class="card">
+        <h2>Add Participant</h2>
+        <form id="participantForm">
+            <label for="name">Name</label>
+            <input type="text" id="name" required placeholder="e.g., Alice">
+
+            <label for="timezone">Your Local Timezone (vs UTC)</label>
+            <select id="timezone" required>
+                <option value="-11">UTC -11 (Samoa)</option>
+                <option value="-10">UTC -10 (Hawaii)</option>
+                <option value="-9">UTC -9 (Alaska)</option>
+                <option value="-8">UTC -8 (US Pacific / PT)</option>
+                <option value="-7">UTC -7 (US Mountain / MT)</option>
+                <option value="-6">UTC -6 (US Central / CT)</option>
+                <option value="-5">UTC -5 (US Eastern / ET)</option>
+                <option value="-4">UTC -4 (Atlantic)</option>
+                <option value="-3">UTC -3 (Brazil, Argentina)</option>
+                <option value="-1">UTC -1 (Azores)</option>
+                <option value="0" selected>UTC +0 (London, GMT)</option>
+                <option value="1">UTC +1 (Central Europe, Lagos)</option>
+                <option value="2">UTC +2 (Eastern Europe, Cairo)</option>
+                <option value="3">UTC +3 (Moscow, East Africa)</option>
+                <option value="4">UTC +4 (Dubai)</option>
+                <option value="5">UTC +5 (Pakistan)</option>
+                <option value="5.5">UTC +5:30 (India)</option>
+                <option value="6">UTC +6 (Bangladesh)</option>
+                <option value="7">UTC +7 (Bangkok, Jakarta)</option>
+                <option value="8">UTC +8 (Singapore, Beijing, Perth)</option>
+                <option value="9">UTC +9 (Tokyo, Seoul)</option>
+                <option value="10">UTC +10 (Sydney, Brisbane)</option>
+                <option value="11">UTC +11 (Solomon Islands)</option>
+                <option value="12">UTC +12 (New Zealand)</option>
+            </select>
+
+            <div style="display: flex; align-items: center;">
+                <label style="margin: 0;">Select Your Available Local Hours:</label>
+                <button type="button" class="clear-btn" id="clearSlots">Clear Grid</button>
+            </div>
+            
+            <div class="timeline-label">Morning / Afternoon (00:00 - 11:00)</div>
+            <div class="time-grid" id="amGrid"></div>
+
+            <div class="timeline-label">Afternoon / Evening (12:00 - 23:00)</div>
+            <div class="time-grid" id="pmGrid"></div>
+
+            <button type="submit">Add to Calculations</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>Optimal Results (Live Updates)</h2>
+        <div class="stats" id="globalStats">Total Participants: 0 | Total Covered: 0%</div>
+        
+        <div id="bestSlotsContainer">
+            <p style="color: #64748b;">Waiting for participant data to generate optimal event slots...</p>
+        </div>
+
+        <h2>Roster & Target Selection</h2>
+        <div style="overflow-x: auto;">
+            <table id="rosterTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Timezone</th>
+                        <th>Total Free Hours</th>
+                        <th>Assigned Event</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const participants = [];
+
+    // Initialize the visual timeline grids (AM and PM grids)
+    const amGrid = document.getElementById('amGrid');
+    const pmGrid = document.getElementById('pmGrid');
+
+    function createGridSlots() {
+        for (let h = 0; h < 24; h++) {
+            const slot = document.createElement('div');
+            slot.className = 'time-slot';
+            slot.dataset.hour = h;
+            slot.innerText = `${h.toString().padStart(2, '0')}:00`;
+            
+            // Add click event to toggle selection status
+            slot.addEventListener('click', () => {
+                slot.classList.toggle('selected');
+            });
+
+            if (h < 12) {
+                amGrid.appendChild(slot);
+            } else {
+                pmGrid.appendChild(slot);
+            }
+        }
+    }
+    createGridSlots();
+
+    // Clear selections helper
+    document.getElementById('clearSlots').addEventListener('click', () => {
+        document.querySelectorAll('.time-slot').forEach(el => el.classList.remove('selected'));
+    });
+
+    // Handle form submissions
+    document.getElementById('participantForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const name = document.getElementById('name').value;
+        const offset = parseFloat(document.getElementById('timezone').value);
+
+        // Gather all selected hours from the user UI
+        const selectedLocalHours = [];
+        document.querySelectorAll('.time-slot.selected').forEach(slot => {
+            selectedLocalHours.push(parseInt(slot.dataset.hour));
+        });
+
+        if (selectedLocalHours.length === 0) {
+            alert("Please pick at least one hour block when you are free!");
+            return;
+        }
+
+        // Convert selected local hours array into a 24-hour UTC bitmap
+        const utcAvailability = new Array(24).fill(0);
+        selectedLocalHours.forEach(localHour => {
+            let utcHour = (localHour - offset + 24) % 24;
+            utcHour = Math.floor(utcHour); // Keeps logic clean for fractional offsets
+            utcAvailability[utcHour] = 1;
+        });
+
+        // Push data model to registry
+        participants.push({
+            name,
+            offset,
+            localHoursCount: selectedLocalHours.length,
+            utcAvailability
+        });
+
+        // Reset form input UI fields
+        document.getElementById('name').value = '';
+        document.querySelectorAll('.time-slot').forEach(el => el.classList.remove('selected'));
+        
+        // Live calculation engine trigger
+        calculateOptimalSlots();
+    });
+
+    function calculateOptimalSlots() {
+        if (participants.length === 0) return;
+
+        // Combinatorial Exhaustive Check: Since 24 hours has only 2,024 unique sets of 3, 
+        // we can instantly calculate the perfect combination instead of relying on a greedy estimate.
+        let bestThree = [];
+        let maxCoverage = -1;
+
+        for (let i = 0; i < 22; i++) {
+            for (let j = i + 1; j < 23; j++) {
+                for (let k = j + 1; k < 24; k++) {
+                    
+                    // Count unique users hit by these 3 test hours
+                    let coveredCount = 0;
+                    participants.forEach(p => {
+                        if (p.utcAvailability[i] === 1 || p.utcAvailability[j] === 1 || p.utcAvailability[k] === 1) {
+                            coveredCount++;
+                        }
+                    });
+
+                    if (coveredCount > maxCoverage) {
+                        maxCoverage = coveredCount;
+                        bestThree = [i, j, k];
+                    }
+                }
+            }
+        }
+
+        let coveragePercent = Math.round((maxCoverage / participants.length) * 100);
+
+        // Update Dashboard Summary Stats Text
+        document.getElementById('globalStats').innerText = 
+            `Total Participants: ${participants.length} | Max Overlap Coverage: ${coveragePercent}% (${maxCoverage}/${participants.length} people)`;
+
+        renderResults(bestThree);
+        renderRoster(bestThree);
+    }
+
+    function renderResults(bestHours) {
+        const container = document.getElementById('bestSlotsContainer');
+        container.innerHTML = '';
+
+        bestHours.forEach((utcHour, index) => {
+            // Collect people attending this slot (favoring earlier slot indexes if someone overlaps multiple times)
+            let attendees = participants.filter(p => {
+                if (p.utcAvailability[utcHour] === 0) return false;
+                if (index === 1 && p.utcAvailability[bestHours[0]] === 1) return false;
+                if (index === 2 && (p.utcAvailability[bestHours[0]] === 1 || p.utcAvailability[bestHours[1]] === 1)) return false;
+                return true;
+            });
+
+            const slotDiv = document.createElement('div');
+            slotDiv.className = 'result-slot';
+            let timeStrUTC = `${utcHour.toString().padStart(2, '0')}:00 UTC`;
+
+            slotDiv.innerHTML = `
+                <h3>Event Slot #${index + 1}: ${timeStrUTC}</h3>
+                <p style="margin: 5px 0;"><strong>Active Window Audience:</strong> Handles ${attendees.length} people based on custom times.</p>
+                <div>${attendees.map(p => `<span class="badge">${p.name} (Local: ${formatLocalTime(utcHour, p.offset)})</span>`).join('')}</div>
+            `;
+            container.appendChild(slotDiv);
+        });
+    }
+
+    function renderRoster(bestHours) {
+        const tbody = document.querySelector('#rosterTable tbody');
+        tbody.innerHTML = '';
+
+        participants.forEach(p => {
+            let assigned = "❌ Cannot attend any of the 3 hours";
+            for (let i = 0; i < bestHours.length; i++) {
+                if (p.utcAvailability[bestHours[i]] === 1) {
+                    assigned = `Slot #${i + 1} (${bestHours[i].toString().padStart(2, '0')}:00 UTC)`;
+                    break;
+                }
+            }
+
+            const tr = document.createElement('tr');
+            let offsetSign = p.offset >= 0 ? `+${p.offset}` : p.offset;
+            tr.innerHTML = `
+                <td><strong>${p.name}</strong></td>
+                <td>UTC ${offsetSign}</td>
+                <td>${p.localHoursCount} hours selected</td>
+                <td style="color: ${assigned.includes('❌') ? '#dc2626' : '#16a34a'}; font-weight: 500;">${assigned}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function formatLocalTime(utcHour, offset) {
+        let localHour = (utcHour + offset + 24) % 24;
+        let mins = Number.isInteger(localHour) ? "00" : "30";
+        return `${Math.floor(localHour).toString().padStart(2, '0')}:${mins}`;
+    }
+</script>
+
+</body>
+</html>
