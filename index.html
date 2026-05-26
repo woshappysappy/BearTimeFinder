@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TSV Bear Trap Time Finder</title>
+    <title>Bear Trap Time Finder (Auto-DST)</title>
     <style>
         :root {
             --primary: #2563eb;
@@ -39,7 +39,7 @@
         }
         h2 { margin-top: 0; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;}
         label { display: block; margin: 15px 0 5px; font-weight: 600; }
-        input, select {
+        input {
             width: 100%;
             padding: 10px;
             margin-bottom: 15px;
@@ -47,6 +47,16 @@
             border-radius: 6px;
             box-sizing: border-box;
             font-size: 1rem;
+        }
+        .tz-display {
+            background: #f1f5f9;
+            padding: 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            margin-bottom: 15px;
+            color: #475569;
+            font-size: 0.95rem;
         }
         .timeline-label { font-size: 0.85rem; color: #64748b; margin-bottom: 5px; }
         .time-grid {
@@ -118,8 +128,6 @@
         th { background: #f1f5f9; }
         .clear-btn { background: #64748b; padding: 4px 8px; font-size: 0.75rem; width: auto; margin: 0 0 10px auto; display: block; }
         .clear-btn:hover { background: #475569; }
-        
-        /* Delete Button Formatting Style */
         .delete-btn {
             background: #fee2e2;
             color: var(--danger);
@@ -132,52 +140,23 @@
             margin: 0;
             font-weight: 500;
         }
-        .delete-btn:hover {
-            background: var(--danger);
-            color: white;
-            border-color: var(--danger);
-        }
+        .delete-btn:hover { background: var(--danger); color: white; border-color: var(--danger); }
     </style>
 </head>
 <body>
 
-<h1 style="text-align: center; margin-bottom: 30px;">🐻 TSV Bear Trap Time Finder 🐻</h1>
+<h1 style="text-align: center; margin-bottom: 30px;">🐻 Bear Trap Time Finder 🐻</h1>
 
 <div class="container">
     <div class="card">
         <h2>Add Your Availability</h2>
-        Enter your availability here in your local timezone, so we can find the best times for our bear traps!
+        You can select as many times below as you like. Choose any time that you think you can make at least 80% of the time.
         <form id="participantForm">
             <label for="name">Name</label>
             <input type="text" id="name" required placeholder="e.g., Alice">
 
-            <label for="timezone">Your Local Timezone (vs UTC)</label>
-            <select id="timezone" required>
-                <option value="-11">UTC -11 (Samoa)</option>
-                <option value="-10">UTC -10 (Hawaii)</option>
-                <option value="-9">UTC -9 (Alaska)</option>
-                <option value="-8">UTC -8 (US Pacific)</option>
-                <option value="-7">UTC -7 (US Mountain)</option>
-                <option value="-6">UTC -6 (US Central)</option>
-                <option value="-5">UTC -5 (US Eastern)</option>
-                <option value="-4">UTC -4 (Atlantic)</option>
-                <option value="-3">UTC -3 (Brazil, Argentina)</option>
-                <option value="-1">UTC -1 (Azores)</option>
-                <option value="0" selected>UTC +0 (London, GMT)</option>
-                <option value="1">UTC +1 (Central Europe, Lagos)</option>
-                <option value="2">UTC +2 (Eastern Europe, Cairo)</option>
-                <option value="3">UTC +3 (Moscow, East Africa)</option>
-                <option value="4">UTC +4 (Dubai)</option>
-                <option value="5">UTC +5 (Pakistan)</option>
-                <option value="5.5">UTC +5:30 (India)</option>
-                <option value="6">UTC +6 (Bangladesh)</option>
-                <option value="7">UTC +7 (Bangkok, Jakarta)</option>
-                <option value="8">UTC +8 (Singapore, Beijing, Perth)</option>
-                <option value="9">UTC +9 (Tokyo, Seoul)</option>
-                <option value="10">UTC +10 (Sydney, Brisbane)</option>
-                <option value="11">UTC +11 (Solomon Islands)</option>
-                <option value="12">UTC +12 (New Zealand)</option>
-            </select>
+            <label>Detected Timezone (Auto-Adjusts for DST)</label>
+            <div class="tz-display" id="tzDisplay">Detecting your location...</div>
 
             <div style="display: flex; align-items: center;">
                 <label style="margin: 0;">Select Your Available Local Hours:</label>
@@ -195,7 +174,7 @@
     </div>
 
     <div class="card">
-        <h2>Bear trap times</h2>
+        <h2>Bear Trap Results</h2>
         <div class="stats" id="globalStats">Loading data from cloud...</div>
         
         <div id="bestSlotsContainer">
@@ -208,7 +187,7 @@
                 <thead>
                     <tr>
                         <th>Name</th>
-                        <th>Timezone</th>
+                        <th>Timezone Offset</th>
                         <th>Total Free Hours</th>
                         <th>Assigned Event</th>
                         <th>Action</th>
@@ -224,17 +203,17 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-   // Your web app's Firebase configuration
-   // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-   const firebaseConfig = {
-     apiKey: "AIzaSyAKAPIqu1kMkQ94ExajYGNQ7NTkcx7TDT4",
-     authDomain: "beartimefinder.firebaseapp.com",
-     projectId: "beartimefinder",
-     storageBucket: "beartimefinder.firebasestorage.app",
-     messagingSenderId: "162685504171",
-     appId: "1:162685504171:web:25adfc9cb22d5488b745ee",
-     measurementId: "G-D3FXPGFW7T"
-   };
+    // Your web app's Firebase configuration
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    const firebaseConfig = {
+      apiKey: "AIzaSyAKAPIqu1kMkQ94ExajYGNQ7NTkcx7TDT4",
+      authDomain: "beartimefinder.firebaseapp.com",
+      projectId: "beartimefinder",
+      storageBucket: "beartimefinder.firebasestorage.app",
+      messagingSenderId: "162685504171",
+      appId: "1:162685504171:web:25adfc9cb22d5488b745ee",
+      measurementId: "G-D3FXPGFW7T"
+    };
 
     // Initialize Firebase & Firestore
     const app = initializeApp(firebaseConfig);
@@ -242,6 +221,16 @@
     const participantsCollection = collection(db, "participants");
 
     let participants = [];
+
+    // --- AUTOMATIC TIMEZONE DETECTION ENGINE ---
+    // Reads exact device clock offset in hours, correcting for inverted JS offsets
+    const detectedOffset = -(new Date().getTimezoneOffset() / 60);
+    // Gets named location string (e.g., "America/New_York" or "Europe/London")
+    const namedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const sign = detectedOffset >= 0 ? "+" : "";
+    
+    // Render the live calculation properties directly inside form UI
+    document.getElementById('tzDisplay').innerText = `${namedTimezone} (UTC ${sign}${detectedOffset})`;
 
     // Initialize UI Grids
     const amGrid = document.getElementById('amGrid');
@@ -265,7 +254,6 @@
         const submitBtn = document.getElementById('submitBtn');
         
         const name = document.getElementById('name').value;
-        const offset = parseFloat(document.getElementById('timezone').value);
         const selectedLocalHours = [];
         
         document.querySelectorAll('.time-slot.selected').forEach(slot => {
@@ -282,14 +270,14 @@
 
         const utcAvailability = new Array(24).fill(0);
         selectedLocalHours.forEach(localHour => {
-            let utcHour = (localHour - offset + 24) % 24;
+            let utcHour = (localHour - detectedOffset + 24) % 24;
             utcAvailability[Math.floor(utcHour)] = 1;
         });
 
         try {
             await addDoc(participantsCollection, {
                 name: name,
-                offset: offset,
+                offset: detectedOffset, // Pushes dynamic smart offset to database
                 localHoursCount: selectedLocalHours.length,
                 utcAvailability: utcAvailability
             });
@@ -305,11 +293,10 @@
         }
     });
 
-    // Real-Time Listener: Includes document ID preservation
+    // Real-Time Listener
     onSnapshot(participantsCollection, (snapshot) => {
         participants = [];
         snapshot.forEach((snapshotDoc) => {
-            // Include document cloud ID directly into internal state for reference on deletions
             const data = snapshotDoc.data();
             data.id = snapshotDoc.id; 
             participants.push(data);
@@ -324,7 +311,7 @@
         }
     });
 
-    // Make delete function available to HTML components outside this module script
+    // Handle user deletion requests safely
     window.deleteParticipant = async function(docId, name) {
         if (confirm(`Are you sure you want to delete ${name}'s availability submission?`)) {
             try {
