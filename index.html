@@ -8,6 +8,7 @@
         :root {
             --primary: #2563eb;
             --success: #16a34a;
+            --danger: #dc2626;
             --background: #f8fafc;
             --text: #1e293b;
             --border: #cbd5e1;
@@ -117,6 +118,25 @@
         th { background: #f1f5f9; }
         .clear-btn { background: #64748b; padding: 4px 8px; font-size: 0.75rem; width: auto; margin: 0 0 10px auto; display: block; }
         .clear-btn:hover { background: #475569; }
+        
+        /* Delete Button Formatting Style */
+        .delete-btn {
+            background: #fee2e2;
+            color: var(--danger);
+            border: 1px solid #fca5a5;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            width: auto;
+            margin: 0;
+            font-weight: 500;
+        }
+        .delete-btn:hover {
+            background: var(--danger);
+            color: white;
+            border-color: var(--danger);
+        }
     </style>
 </head>
 <body>
@@ -190,6 +210,7 @@
                         <th>Timezone</th>
                         <th>Total Free Hours</th>
                         <th>Assigned Event</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -200,26 +221,25 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // Your web app's Firebase configuration
-    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-    const firebaseConfig = {
-      apiKey: "AIzaSyAKAPIqu1kMkQ94ExajYGNQ7NTkcx7TDT4",
-      authDomain: "beartimefinder.firebaseapp.com",
-      projectId: "beartimefinder",
-      storageBucket: "beartimefinder.firebasestorage.app",
-      messagingSenderId: "162685504171",
-      appId: "1:162685504171:web:25adfc9cb22d5488b745ee",
-      measurementId: "G-D3FXPGFW7T"
-    };
+   // Your web app's Firebase configuration
+   // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+   const firebaseConfig = {
+     apiKey: "AIzaSyAKAPIqu1kMkQ94ExajYGNQ7NTkcx7TDT4",
+     authDomain: "beartimefinder.firebaseapp.com",
+     projectId: "beartimefinder",
+     storageBucket: "beartimefinder.firebasestorage.app",
+     messagingSenderId: "162685504171",
+     appId: "1:162685504171:web:25adfc9cb22d5488b745ee",
+     measurementId: "G-D3FXPGFW7T"
+   };
 
     // Initialize Firebase & Firestore
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const participantsCollection = collection(db, "participants");
 
-    // Local application state array
     let participants = [];
 
     // Initialize UI Grids
@@ -259,7 +279,6 @@
         submitBtn.disabled = true;
         submitBtn.innerText = "Saving to Cloud...";
 
-        // Compute UTC availability array mapping
         const utcAvailability = new Array(24).fill(0);
         selectedLocalHours.forEach(localHour => {
             let utcHour = (localHour - offset + 24) % 24;
@@ -267,7 +286,6 @@
         });
 
         try {
-            // Push payload to cloud database
             await addDoc(participantsCollection, {
                 name: name,
                 offset: offset,
@@ -275,10 +293,8 @@
                 utcAvailability: utcAvailability
             });
 
-            // Reset Input UI
             document.getElementById('name').value = '';
             document.querySelectorAll('.time-slot').forEach(el => el.classList.remove('selected'));
-            alert("Success! Your availability has been registered.");
         } catch (error) {
             console.error("Error saving data: ", error);
             alert("Failed to sync data with the cloud server.");
@@ -288,11 +304,14 @@
         }
     });
 
-    // Real-Time Listener: Listen to changes in Firestore and update live
+    // Real-Time Listener: Includes document ID preservation
     onSnapshot(participantsCollection, (snapshot) => {
         participants = [];
-        snapshot.forEach((doc) => {
-            participants.push(doc.data());
+        snapshot.forEach((snapshotDoc) => {
+            // Include document cloud ID directly into internal state for reference on deletions
+            const data = snapshotDoc.data();
+            data.id = snapshotDoc.id; 
+            participants.push(data);
         });
         
         if(participants.length > 0) {
@@ -303,6 +322,19 @@
             document.querySelector('#rosterTable tbody').innerHTML = '';
         }
     });
+
+    // Make delete function available to HTML components outside this module script
+    window.deleteParticipant = async function(docId, name) {
+        if (confirm(`Are you sure you want to delete ${name}'s availability submission?`)) {
+            try {
+                const docRef = doc(db, "participants", docId);
+                await deleteDoc(docRef);
+            } catch (error) {
+                console.error("Error removing document: ", error);
+                alert("Could not remove the item from the cloud.");
+            }
+        }
+    };
 
     function calculateOptimalSlots() {
         let bestThree = [];
@@ -378,6 +410,9 @@
                 <td>UTC ${offsetSign}</td>
                 <td>${p.localHoursCount} hours selected</td>
                 <td style="color: ${assigned.includes('❌') ? '#dc2626' : '#16a34a'}; font-weight: 500;">${assigned}</td>
+                <td>
+                    <button class="delete-btn" onclick="deleteParticipant('${p.id}', '${p.name}')">Delete</button>
+                </td>
             `;
             tbody.appendChild(tr);
         });
