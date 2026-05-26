@@ -383,7 +383,7 @@
             let timeStrUTC = `${utcHour.toString().padStart(2, '0')}:00 UTC`;
 
             slotDiv.innerHTML = `
-                <h3>Event Slot #${index + 1}: ${timeStrUTC}</h3>
+                <h3>Bear Trap ${index + 1}: ${timeStrUTC}</h3>
                 <p style="margin: 5px 0;"><strong>Active Window Audience:</strong> Handles ${attendees.length} people based on custom times.</p>
                 <div>${attendees.map(p => `<span class="badge">${p.name} (Local: ${formatLocalTime(utcHour, p.offset)})</span>`).join('')}</div>
             `;
